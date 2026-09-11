@@ -419,9 +419,9 @@ canvas.chart-canvas{width:100%; display:block;}
 <script>
 'use strict';
 /* ============================================================
-   CHANTIER MANAGER — application locale (V1)
-   Aucune dépendance externe. Toutes les données sont stockées
-   dans localStorage. Organisation du code par modules logiques.
+   CHANTIER MANAGER (V2)
+   Les données sont persistées côté serveur (PostgreSQL) via
+   l'API /api/state. Organisation du code par modules logiques.
    ============================================================ */
 /* ===================== CONSTANTS ===================== */
 const PROJECT_STATUSES = ['Prospect','Préparation','En cours','Suspendu','Terminé','Annulé'];
@@ -543,22 +543,32 @@ const Utils = {
 };
 
 /* ===================== STORAGE ===================== */
-const STORAGE_KEY = 'chantier_manager_data_v1';
+/* Les données vivent désormais sur le serveur (PostgreSQL) via l'API /api/state,
+   pas dans localStorage. Store.state reste la copie en mémoire utilisée pour un
+   rendu instantané ; chaque mutation programme une sauvegarde réseau débouncée. */
 const Storage = {
-  load(){
-    try{
-      const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? JSON.parse(raw) : null;
-    }catch(e){ console.error('Erreur de lecture des données', e); return null; }
+  async load(){
+    const res = await fetch('/api/state');
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const json = await res.json();
+    return json.data;
   },
+  _timer:null,
   save(state){
+    clearTimeout(Storage._timer);
+    Storage._timer = setTimeout(()=>Storage._flush(state), 400);
+  },
+  async _flush(state){
     try{
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      return true;
+      const res = await fetch('/api/state', {
+        method:'PUT',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(state)
+      });
+      if(!res.ok) throw new Error('HTTP '+res.status);
     }catch(e){
       console.error('Erreur de sauvegarde', e);
-      UI.toast("Stockage local plein : les dernières données n'ont pas pu être sauvegardées (essayez de supprimer des photos/documents volumineux).", 'error');
-      return false;
+      UI.toast("Connexion au serveur perdue : vos dernières modifications n'ont peut-être pas été enregistrées.", 'error');
     }
   }
 };
@@ -585,8 +595,8 @@ function migrateState(loaded){
 const Store = {
   state:null,
   firstRun:false,
-  init(){
-    const loaded = Storage.load();
+  async init(){
+    const loaded = await Storage.load();
     if(loaded){ this.state = migrateState(loaded); }
     else { this.state = defaultState(); this.firstRun = true; this.persist(); }
   },
@@ -2693,7 +2703,7 @@ const Settings = {
 
       <div class="card">
         <div class="section-title" style="margin-bottom:10px;">Gestion des données</div>
-        <p style="font-size:12.8px;color:var(--text-muted);margin-bottom:14px;">Exportez régulièrement vos données pour éviter toute perte (l'application fonctionne 100% localement, sans serveur).</p>
+        <p style="font-size:12.8px;color:var(--text-muted);margin-bottom:14px;">Vos données sont stockées de façon centralisée sur le serveur (PostgreSQL), accessibles depuis n'importe quel appareil connecté à internet. Exportez régulièrement une copie de sauvegarde par précaution.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button class="btn btn-outline" id="exportJsonBtn">⬇️ Exporter toutes les données (JSON)</button>
           <button class="btn btn-outline" id="importJsonBtn">⬆️ Importer un fichier JSON</button>
@@ -2881,8 +2891,22 @@ function buildQuickAddMenu(){
   menu.querySelectorAll('[data-qmi]').forEach(btn=>btn.addEventListener('click', ()=>{ menu.classList.remove('open'); items[+btn.dataset.qmi].fn(); }));
 }
 
-function boot(){
-  Store.init();
+function showConnectionError(){
+  document.getElementById('splash').innerHTML = `
+    <div class="splash-logo">⚠️</div>
+    <div class="splash-title">Connexion impossible</div>
+    <div class="splash-sub">Impossible de contacter le serveur. Vérifiez votre connexion internet puis réessayez.</div>
+    <button class="btn" style="margin-top:16px;" onclick="location.reload()">Réessayer</button>
+  `;
+}
+async function boot(){
+  try{
+    await Store.init();
+  }catch(e){
+    console.error('Impossible de charger les données depuis le serveur', e);
+    showConnectionError();
+    return;
+  }
 
   const theme = Store.state.settings.theme || 'light';
   document.documentElement.setAttribute('data-theme', theme);
@@ -2928,6 +2952,16 @@ function boot(){
       navigator.serviceWorker.register('sw.js').catch(err=>console.error('SW registration failed', err));
     });
   }
+
+  window.addEventListener('beforeunload', ()=>{
+    if(Storage._timer){
+      clearTimeout(Storage._timer);
+      try{
+        const blob = new Blob([JSON.stringify(Store.state)], {type:'application/json'});
+        navigator.sendBeacon('/api/state', blob);
+      }catch(e){}
+    }
+  });
 }
 document.addEventListener('DOMContentLoaded', boot);
 /*__JS_INSERT__*/

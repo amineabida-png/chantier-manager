@@ -1,9 +1,10 @@
 /* Service worker — CHANTIER MANAGER
-   Stratégie "stale-while-revalidate" : sert le cache instantanément (mode hors-ligne
-   fiable sur chantier), puis met le cache à jour en arrière-plan dès qu'une
-   connexion est disponible. Incrémenter CACHE_NAME à chaque changement de fichiers
-   pour forcer la mise à jour chez les utilisateurs. */
-const CACHE_NAME = 'chantier-manager-v1';
+   Stratégie "stale-while-revalidate" pour la coquille de l'app (HTML/CSS/JS/icônes) :
+   sert le cache instantanément, puis met à jour en arrière-plan. Les appels /api/*
+   (données PostgreSQL) ne sont JAMAIS mis en cache — toujours réseau direct, sinon
+   l'utilisateur pourrait voir des données périmées. Incrémenter CACHE_NAME à chaque
+   changement de fichiers pour forcer la mise à jour chez les utilisateurs. */
+const CACHE_NAME = 'chantier-manager-v2';
 const APP_SHELL = [
   './',
   './index.html',
@@ -36,6 +37,7 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith('/api/')) return; // toujours réseau direct, jamais de cache
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
