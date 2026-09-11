@@ -1,0 +1,12 @@
+{
+  "name": "chantier-manager",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Application locale de gestion de chantiers (PWA, localStorage)",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
