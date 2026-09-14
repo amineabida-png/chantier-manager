@@ -1,14 +1,16 @@
 {
   "name": "chantier-manager",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
-  "description": "Application de gestion de chantiers (PWA) — API Node/Express + PostgreSQL",
+  "description": "Application de gestion de chantiers (PWA) — API Node/Express + PostgreSQL, authentification et facturation",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.19.2",
-    "pg": "^8.12.0"
+    "pg": "^8.12.0",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6"
   },
   "engines": {
     "node": ">=18"

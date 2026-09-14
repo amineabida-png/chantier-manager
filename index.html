@@ -77,6 +77,20 @@ input,select,textarea{font-family:inherit; font-size:14px;}
 .splash-bar::after{content:'';display:block;height:100%;width:40%;background:#fff;border-radius:4px;animation:load 1s ease-in-out infinite;}
 @keyframes load{0%{transform:translateX(-100%);}100%{transform:translateX(360%);}}
 
+/* ===================== LOGIN ===================== */
+.login-screen{
+  position:fixed; inset:0; z-index:500; background:linear-gradient(150deg,var(--primary-dark),var(--primary));
+  display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.login-box{
+  background:var(--card-bg); border-radius:18px; box-shadow:var(--shadow-lg); padding:32px 28px;
+  width:100%; max-width:340px; text-align:center;
+}
+.login-box h1{font-size:18px; margin-bottom:4px;}
+.login-sub{font-size:12.5px; color:var(--text-muted); margin-bottom:20px;}
+.login-box .form-group{text-align:left; margin-bottom:14px;}
+.login-error{background:var(--danger-soft); color:var(--danger); font-size:12.5px; font-weight:600; padding:9px 12px; border-radius:9px; margin-bottom:14px; text-align:left;}
+
 /* ===================== APP LAYOUT ===================== */
 .app{display:flex; min-height:100vh;}
 .sidebar{
@@ -102,6 +116,10 @@ input,select,textarea{font-family:inherit; font-size:14px;}
 .company-mini .avatar{width:30px;height:30px;border-radius:9px;background:var(--primary-soft);color:var(--primary);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12.5px;flex-shrink:0;}
 .company-mini .cn{font-size:12.3px;font-weight:700; overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .company-mini .cs{font-size:10.5px;color:var(--text-muted);}
+.user-mini{display:flex;align-items:center;gap:9px;padding:8px;border-radius:var(--radius-sm);margin-top:6px;}
+.user-mini .avatar{width:30px;height:30px;border-radius:9px;background:var(--success-soft);color:var(--success);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12.5px;flex-shrink:0;}
+.user-mini .cn{font-size:12.3px;font-weight:700; overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.user-mini .cs{font-size:10.5px;color:var(--text-muted);}
 
 .main{flex:1; margin-left:var(--sidebar-w); min-width:0; display:flex; flex-direction:column;}
 .topbar{
@@ -370,6 +388,18 @@ canvas.chart-canvas{width:100%; display:block;}
 <div id="modal-root"></div>
 <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
+<div class="login-screen hidden" id="loginScreen">
+  <form class="login-box" id="loginForm">
+    <div class="brand-mark" style="width:52px;height:52px;font-size:24px;margin:0 auto 14px;">🏗️</div>
+    <h1>CHANTIER MANAGER</h1>
+    <p class="login-sub">Connectez-vous pour accéder à votre espace</p>
+    <div class="form-group"><label>Identifiant</label><input type="text" name="username" autocomplete="username" required autofocus></div>
+    <div class="form-group"><label>Mot de passe</label><input type="password" name="password" autocomplete="current-password" required></div>
+    <div id="loginError" class="login-error hidden"></div>
+    <button type="submit" class="btn btn-block" id="loginSubmit">Se connecter</button>
+  </form>
+</div>
+
 <div class="app hidden" id="app">
   <aside class="sidebar" id="sidebar">
     <div class="brand">
@@ -387,6 +417,14 @@ canvas.chart-canvas{width:100%; display:block;}
           <div class="cn" id="companyMiniName">Mon entreprise</div>
           <div class="cs">Espace de travail</div>
         </div>
+      </div>
+      <div class="user-mini" id="userMini">
+        <div class="avatar" id="userAvatar">?</div>
+        <div style="min-width:0;flex:1;">
+          <div class="cn" id="userMiniName">—</div>
+          <div class="cs" id="userMiniRole">—</div>
+        </div>
+        <button class="btn-icon" id="btnLogout" title="Se déconnecter" style="width:30px;height:30px;font-size:13px;">⏻</button>
       </div>
     </div>
   </aside>
@@ -431,6 +469,7 @@ const PAYMENT_METHODS = ['Espèces','Chèque','Virement','Carte','Autre'];
 const EMPLOYEE_STATUSES = ['Actif','Inactif'];
 const MATERIAL_STATUSES = ['À commander','Commandé','Reçu','Utilisé'];
 const SITUATION_STATUSES = ['Brouillon','Envoyée','Validée','Partiellement payée','Payée'];
+const INVOICE_STATUSES = ['Brouillon','Envoyée','Payée'];
 const DOCUMENT_TYPES = ['Photos','Plans','Devis','Situations','Factures','Contrats','Autres'];
 
 const STATUS_BADGE = {
@@ -444,16 +483,20 @@ const STATUS_BADGE = {
 const NAV_ITEMS = [
   {id:'dashboard', label:'Tableau de bord', icon:'📊'},
   {id:'projects', label:'Chantiers', icon:'🏗️'},
-  {id:'clients', label:'Clients', icon:'👥'},
-  {id:'quotes', label:'Devis', icon:'📄'},
-  {id:'expenses', label:'Dépenses', icon:'💸'},
+  {id:'clients', label:'Clients', icon:'👥', roles:['admin','comptable']},
+  {id:'quotes', label:'Devis', icon:'📄', roles:['admin','comptable']},
+  {id:'invoices', label:'Factures', icon:'🧾', roles:['admin','comptable']},
+  {id:'expenses', label:'Dépenses', icon:'💸', roles:['admin','comptable']},
   {id:'employees', label:'Équipe', icon:'👷'},
   {id:'materials', label:'Matériaux', icon:'🧱'},
-  {id:'situations', label:'Situations', icon:'📈'},
+  {id:'situations', label:'Situations', icon:'📈', roles:['admin','comptable']},
   {id:'documents', label:'Documents', icon:'🗂️'},
-  {id:'reports', label:'Rapports', icon:'📑'},
-  {id:'settings', label:'Paramètres', icon:'⚙️'},
+  {id:'reports', label:'Rapports', icon:'📑', roles:['admin','comptable']},
+  {id:'settings', label:'Paramètres', icon:'⚙️', roles:['admin','comptable']},
 ];
+function visibleNavItems(){
+  return NAV_ITEMS.filter(n=>!n.roles || n.roles.includes(Auth.user && Auth.user.role));
+}
 const BOTTOM_NAV_IDS = ['dashboard','projects','quotes','expenses','more'];
 
 /* ===================== UTILS ===================== */
@@ -465,7 +508,10 @@ const Utils = {
   },
   fmtMoney(n){
     n = Number(n); if(!isFinite(n)) n = 0;
-    return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n) + ' DH';
+    const symbols = {MAD:'DH', EUR:'€', USD:'$'};
+    const cur = (typeof Store!=='undefined' && Store.state && Store.state.settings && Store.state.settings.currency) || 'MAD';
+    const symbol = symbols[cur] || cur;
+    return new Intl.NumberFormat('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(n) + ' ' + symbol;
   },
   fmtNum(n){ n=Number(n); if(!isFinite(n)) n=0; return new Intl.NumberFormat('fr-FR').format(n); },
   fmtDate(iso){
@@ -542,13 +588,54 @@ const Utils = {
   },
 };
 
+/* ===================== AUTH ===================== */
+const Auth = {
+  user:null,
+  async me(){
+    const res = await fetch('/api/auth/me', {credentials:'same-origin'});
+    if(!res.ok) return null;
+    const json = await res.json();
+    Auth.user = json.user;
+    return json.user;
+  },
+  async login(username, password){
+    const res = await fetch('/api/auth/login', {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({username, password})
+    });
+    const json = await res.json();
+    if(!res.ok) throw new Error(json.error || 'Connexion impossible.');
+    Auth.user = json.user;
+    return json.user;
+  },
+  async logout(){
+    await fetch('/api/auth/logout', {method:'POST', credentials:'same-origin'});
+    Auth.user = null;
+  },
+  async changePassword(oldPassword, newPassword){
+    const res = await fetch('/api/auth/change-password', {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({oldPassword, newPassword})
+    });
+    const json = await res.json();
+    if(!res.ok) throw new Error(json.error || 'Erreur.');
+    return true;
+  },
+  isAdmin(){ return Auth.user && Auth.user.role==='admin'; },
+  isChef(){ return Auth.user && Auth.user.role==='chef_chantier'; },
+  roleLabel(role){ return {admin:'Administrateur', comptable:'Comptable', chef_chantier:'Chef de chantier'}[role] || role; },
+};
+
 /* ===================== STORAGE ===================== */
 /* Les données vivent désormais sur le serveur (PostgreSQL) via l'API /api/state,
    pas dans localStorage. Store.state reste la copie en mémoire utilisée pour un
    rendu instantané ; chaque mutation programme une sauvegarde réseau débouncée. */
 const Storage = {
   async load(){
-    const res = await fetch('/api/state');
+    const res = await fetch('/api/state', {credentials:'same-origin'});
+    if(res.status===401){ const e = new Error('unauthorized'); e.authExpired = true; throw e; }
     if(!res.ok) throw new Error('HTTP '+res.status);
     const json = await res.json();
     return json.data;
@@ -561,10 +648,15 @@ const Storage = {
   async _flush(state){
     try{
       const res = await fetch('/api/state', {
-        method:'PUT',
+        method:'PUT', credentials:'same-origin',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify(state)
       });
+      if(res.status===401){
+        UI.toast('Votre session a expiré. Veuillez vous reconnecter.', 'error');
+        showLoginScreen();
+        return;
+      }
       if(!res.ok) throw new Error('HTTP '+res.status);
     }catch(e){
       console.error('Erreur de sauvegarde', e);
@@ -579,7 +671,7 @@ function defaultState(){
       company:{ name:'', logo:'', address:'', phone:'', email:'', ice:'', ifiscal:'' },
       tvaDefault:20, currency:'MAD', theme:'light', retenueDefault:10,
     },
-    clients:[], projects:[], quotes:[], expenses:[], employees:[], materials:[], situations:[], documents:[], journal:[],
+    clients:[], projects:[], quotes:[], invoices:[], expenses:[], employees:[], materials:[], situations:[], documents:[], journal:[],
   };
 }
 function migrateState(loaded){
@@ -794,6 +886,7 @@ function renderView(){
     projects: Projects.render,
     clients: Clients.render,
     quotes: Quotes.render,
+    invoices: Invoices.render,
     expenses: Expenses.render,
     employees: Employees.render,
     materials: Materials.render,
@@ -808,8 +901,9 @@ function renderView(){
 
 /* ===================== NAV RENDERING ===================== */
 function renderNav(){
+  const visible = visibleNavItems();
   const navList = document.getElementById('navList');
-  navList.innerHTML = NAV_ITEMS.map(n=>`
+  navList.innerHTML = visible.map(n=>`
     <li class="nav-item ${Router.current===n.id?'active':''}" data-nav="${n.id}">
       <span class="ic">${n.icon}</span><span>${n.label}</span>
     </li>`).join('');
@@ -818,15 +912,15 @@ function renderNav(){
   });
 
   const bn = document.getElementById('bottomNav');
-  const mainIds = ['dashboard','projects','quotes','expenses'];
-  const iconOf = id => (NAV_ITEMS.find(n=>n.id===id)||{}).icon;
-  const labelOf = id => (NAV_ITEMS.find(n=>n.id===id)||{}).label;
-  bn.innerHTML = mainIds.map(id=>`
-    <button class="bn-item ${Router.current===id?'active':''}" data-bn="${id}"><span class="ic">${iconOf(id)}</span><span>${labelOf(id)}</span></button>
-  `).join('') + `<button class="bn-item ${['clients','employees','materials','situations','documents','reports','settings'].includes(Router.current)?'active':''}" data-bn="more"><span class="ic">☰</span><span>Plus</span></button>`;
+  const mainItems = visible.slice(0,4);
+  const mainIds = mainItems.map(n=>n.id);
+  const moreItems = visible.slice(4);
+  bn.innerHTML = mainItems.map(n=>`
+    <button class="bn-item ${Router.current===n.id?'active':''}" data-bn="${n.id}"><span class="ic">${n.icon}</span><span>${n.label}</span></button>
+  `).join('') + (moreItems.length ? `<button class="bn-item ${moreItems.some(n=>n.id===Router.current)?'active':''}" data-bn="more"><span class="ic">☰</span><span>Plus</span></button>` : '');
   bn.querySelectorAll('[data-bn]').forEach(el=>{
     el.addEventListener('click', ()=>{
-      if(el.dataset.bn==='more') openMoreMenu();
+      if(el.dataset.bn==='more') openMoreMenu(moreItems);
       else Router.navigate(el.dataset.bn);
     });
   });
@@ -834,14 +928,11 @@ function renderNav(){
   document.getElementById('companyMiniName').textContent = Store.state.settings.company.name || 'Mon entreprise';
   document.getElementById('companyAvatar').textContent = (Store.state.settings.company.name||'CM').slice(0,2).toUpperCase();
 }
-function openMoreMenu(){
-  const items = ['clients','employees','materials','situations','documents','reports','settings'];
+function openMoreMenu(items){
   UI.openModal({
     title:'Plus de modules',
-    bodyHtml:`<div class="grid" style="grid-template-columns:repeat(2,1fr);gap:10px;">${items.map(id=>{
-      const n = NAV_ITEMS.find(x=>x.id===id);
-      return `<div class="card" style="cursor:pointer;text-align:center;padding:18px 10px;" data-go="${id}"><div style="font-size:24px;">${n.icon}</div><div style="font-weight:700;font-size:12.5px;margin-top:6px;">${n.label}</div></div>`;
-    }).join('')}</div>`,
+    bodyHtml:`<div class="grid" style="grid-template-columns:repeat(2,1fr);gap:10px;">${items.map(n=>`
+      <div class="card" style="cursor:pointer;text-align:center;padding:18px 10px;" data-go="${n.id}"><div style="font-size:24px;">${n.icon}</div><div style="font-weight:700;font-size:12.5px;margin-top:6px;">${n.label}</div></div>`).join('')}</div>`,
     onOpen(overlay){
       overlay.querySelectorAll('[data-go]').forEach(el=>el.addEventListener('click', ()=>Router.navigate(el.dataset.go)));
     }
@@ -857,6 +948,7 @@ function runGlobalSearch(q){
   Store.all('projects').forEach(p=>{ if(p.name.toLowerCase().includes(q)||((p.city||'').toLowerCase().includes(q))) results.push({type:'Chantier', label:p.name, sub:p.city||'', go:()=>Router.navigate('projects', p.id)}); });
   Store.all('clients').forEach(c=>{ if(c.name.toLowerCase().includes(q)||(c.company||'').toLowerCase().includes(q)) results.push({type:'Client', label:c.name, sub:c.company||'', go:()=>Router.navigate('clients')}); });
   Store.all('quotes').forEach(qt=>{ if((qt.number||'').toLowerCase().includes(q)||(qt.object||'').toLowerCase().includes(q)) results.push({type:'Devis', label:qt.number, sub:qt.object||'', go:()=>Router.navigate('quotes')}); });
+  Store.all('invoices').forEach(inv=>{ if((inv.number||'').toLowerCase().includes(q)||(inv.object||'').toLowerCase().includes(q)) results.push({type:'Facture', label:inv.number, sub:inv.object||'', go:()=>Router.navigate('invoices')}); });
   Store.all('expenses').forEach(e=>{ if((e.description||'').toLowerCase().includes(q)||(e.supplier||'').toLowerCase().includes(q)) results.push({type:'Dépense', label:e.description||e.category, sub:Utils.fmtMoney(e.amountTTC), go:()=>Router.navigate('expenses')}); });
   Store.all('situations').forEach(s=>{ if((s.number||'').toLowerCase().includes(q)) results.push({type:'Situation', label:s.number, sub:Store.projectName(s.projectId), go:()=>Router.navigate('situations')}); });
   Store.all('employees').forEach(e=>{ if(e.name.toLowerCase().includes(q)) results.push({type:'Employé', label:e.name, sub:e.role||'', go:()=>Router.navigate('employees')}); });
@@ -1133,7 +1225,7 @@ const Dashboard = {
 
       <div class="card" style="margin-bottom:22px;">
         <div class="card-head">
-          <div><div class="section-title">Trésorerie</div><div class="sub" style="font-size:12px;color:var(--text-muted);">Encaissements attendus sur les situations de travaux</div></div>
+          <div><div class="section-title">Trésorerie</div><div class="sub" style="font-size:12px;color:var(--text-muted);">Encaissements attendus (situations et factures)</div></div>
           <button class="link-btn" data-nav-link="situations">Voir toutes les situations →</button>
         </div>
         <div class="grid kpi-grid" style="margin-bottom:16px;">
@@ -1143,14 +1235,14 @@ const Dashboard = {
         </div>
         ${renderTable({
           columns:[
-            {label:'Situation', render:x=>`<b>${Utils.escapeHtml(x.s.number)}</b>`},
-            {label:'Chantier', render:x=>Utils.escapeHtml(Store.projectName(x.s.projectId))},
-            {label:'Client', render:x=>{ const pr=Store.get('projects', x.s.projectId); return Utils.escapeHtml(Store.clientName(pr?pr.clientId:null)); }},
+            {label:'Document', render:x=>`<b>${Utils.escapeHtml(x.number)}</b> <span class="badge b-gray">${x.kind==='invoice'?'Facture':'Situation'}</span>`},
+            {label:'Chantier', render:x=>Utils.escapeHtml(Store.projectName(x.projectId))},
+            {label:'Client', render:x=>Utils.escapeHtml(Store.clientName(x.clientId))},
             {label:'Reste', num:true, render:x=>Utils.fmtMoney(x.reste)},
             {label:'Échéance', render:x=> x.days>0 ? `${Utils.fmtDate(x.due)} <span class="badge b-red">Retard ${x.days}j</span>` : `${Utils.fmtDate(x.due)} <span class="badge b-orange">Dans ${-x.days}j</span>`},
           ],
           rows: tres.unpaid.slice(0,6),
-          emptyIcon:'✅', emptyTitle:'Aucun impayé', emptyText:'Toutes les situations émises sont réglées.'
+          emptyIcon:'✅', emptyTitle:'Aucun impayé', emptyText:'Toutes les situations et factures émises sont réglées.'
         })}
         <div class="divider"></div>
         <div class="sub" style="font-size:12px;color:var(--text-muted);margin-bottom:8px;">Prévisionnel d'encaissement (retard + 3 prochains mois)</div>
@@ -1237,6 +1329,13 @@ function computeAlerts(){
       if(days>0) alerts.push({icon:'💰', color:'danger', title:'Paiement en retard', sub:`Situation ${s.number} (${Store.projectName(s.projectId)}) : ${Utils.fmtMoney(reste)} en retard de ${days} jour(s)`});
     }
   });
+  Store.all('invoices').forEach(inv=>{
+    const reste = invoiceReste(inv);
+    if(reste>0 && inv.status!=='Payée'){
+      const days = Utils.daysBetween(invoiceDueDate(inv), today);
+      if(days>0) alerts.push({icon:'🧾', color:'danger', title:'Facture en retard', sub:`Facture ${inv.number} (${Store.projectName(inv.projectId)}) : ${Utils.fmtMoney(reste)} en retard de ${days} jour(s)`});
+    }
+  });
   Store.all('materials').forEach(m=>{
     if(m.status==='À commander'){
       alerts.push({icon:'🧱', color:'warning', title:'Matériau manquant', sub:`${m.name} à commander pour ${Store.projectName(m.projectId)}`});
@@ -1247,13 +1346,17 @@ function computeAlerts(){
 /* ===================== TRÉSORERIE ===================== */
 function treasuryData(){
   const today = Utils.todayISO();
-  const unpaid = Store.all('situations')
+  const fromSituations = Store.all('situations')
     .filter(s=>s.status!=='Payée' && situationReste(s)>0)
     .map(s=>{
-      const due = situationDueDate(s);
-      const days = Utils.daysBetween(due, today); // >0 = en retard, <=0 = à venir dans -days jours
-      return {s, due, days, reste: situationReste(s)};
-    })
+      const p = Store.get('projects', s.projectId);
+      return { kind:'situation', number:s.number, projectId:s.projectId, clientId:p?p.clientId:null, due:situationDueDate(s), reste:situationReste(s) };
+    });
+  const fromInvoices = Store.all('invoices')
+    .filter(inv=>inv.status!=='Payée' && invoiceReste(inv)>0)
+    .map(inv=>({ kind:'invoice', number:inv.number, projectId:inv.projectId, clientId:inv.clientId, due:invoiceDueDate(inv), reste:invoiceReste(inv) }));
+  const unpaid = fromSituations.concat(fromInvoices)
+    .map(x=>{ x.days = Utils.daysBetween(x.due, today); return x; }) // >0 = en retard, <=0 = à venir dans -days jours
     .sort((a,b)=>a.due.localeCompare(b.due));
   const late = unpaid.filter(x=>x.days>0);
   const upcoming7 = unpaid.filter(x=>x.days<=0 && x.days>=-7);
@@ -1998,9 +2101,11 @@ function employeeCost(emp){
 const Quotes = {
   filter:{q:'', status:'', page:1},
   editLines:[],
-  nextNumber(){
-    const n = Store.all('quotes').length + 1;
-    return 'DEV-'+new Date().getFullYear()+'-'+String(n).padStart(4,'0');
+  async nextNumber(){
+    const res = await fetch('/api/next-number?type=quote', {credentials:'same-origin'});
+    const json = await res.json();
+    if(!res.ok) throw new Error(json.error||'Erreur de numérotation');
+    return json.number;
   },
   computeTotals(lines, tva){
     const totalHT = lines.reduce((s,l)=> s + (Number(l.qty)||0)*(Number(l.priceHT)||0)*(1-(Number(l.discount)||0)/100), 0);
@@ -2034,6 +2139,7 @@ const Quotes = {
           {label:'Statut', render:q=>Utils.badge(q.status)},
           {label:'', actions:true, render:q=>`<div class="row-actions">
             ${!['Accepté','Refusé'].includes(q.status)?`<button class="icon-btn-sq" data-accept-quote="${q.id}" title="Marquer accepté" style="color:var(--success);">✔️</button><button class="icon-btn-sq" data-refuse-quote="${q.id}" title="Marquer refusé" style="color:var(--danger);">✖️</button>`:''}
+            ${q.status==='Accepté'?`<button class="icon-btn-sq" data-to-invoice="${q.id}" title="Convertir en facture" style="color:var(--primary);">🧾</button>`:''}
             <button class="icon-btn-sq" data-view-quote="${q.id}" title="Voir/Imprimer">🖨️</button>
             <button class="icon-btn-sq" data-pdf-quote="${q.id}" title="Télécharger PDF">⬇️</button>
             <button class="icon-btn-sq" data-edit-quote="${q.id}" title="Modifier">✏️</button>
@@ -2055,14 +2161,20 @@ const Quotes = {
       document.querySelectorAll('[data-del-quote]').forEach(el=>el.addEventListener('click', ()=>Quotes.remove(el.dataset.delQuote)));
       document.querySelectorAll('[data-accept-quote]').forEach(el=>el.addEventListener('click', ()=>Quotes.setStatus(el.dataset.acceptQuote,'Accepté')));
       document.querySelectorAll('[data-refuse-quote]').forEach(el=>el.addEventListener('click', ()=>Quotes.setStatus(el.dataset.refuseQuote,'Refusé')));
+      document.querySelectorAll('[data-to-invoice]').forEach(el=>el.addEventListener('click', ()=>Invoices.createFromQuote(el.dataset.toInvoice)));
       Pager.wire(Quotes.filter, pg.totalPages);
     },0);
     return html;
   },
-  openForm(id){
+  async openForm(id){
     const editing = id ? Store.get('quotes', id) : null;
     Quotes.editLines = editing ? JSON.parse(JSON.stringify(editing.lines||[])) : [{designation:'', unit:'u', qty:1, priceHT:0, discount:0}];
-    const d = editing || {number:Quotes.nextNumber(), date:Utils.todayISO(), validity:'30', tva:Store.state.settings.tvaDefault||20, status:'Brouillon'};
+    let number = editing ? editing.number : null;
+    if(!editing){
+      try{ number = await Quotes.nextNumber(); }
+      catch(e){ UI.toast(e.message,'error'); return; }
+    }
+    const d = editing || {number, date:Utils.todayISO(), validity:'30', tva:Store.state.settings.tvaDefault||20, status:'Brouillon'};
     UI.openModal({
       title: editing ? 'Modifier le devis' : 'Nouveau devis', xwide:true,
       bodyHtml:`
@@ -2145,11 +2257,13 @@ const Quotes = {
       }
     });
   },
-  duplicate(id){
+  async duplicate(id){
     const q = Store.get('quotes', id);
     const copy = JSON.parse(JSON.stringify(q));
     delete copy.id; delete copy.createdAt;
-    copy.number = Quotes.nextNumber(); copy.status='Brouillon'; copy.date = Utils.todayISO();
+    try{ copy.number = await Quotes.nextNumber(); }
+    catch(e){ UI.toast(e.message,'error'); return; }
+    copy.status='Brouillon'; copy.date = Utils.todayISO();
     Store.add('quotes', copy);
     UI.toast('Devis dupliqué.', 'success');
     renderView();
@@ -2232,6 +2346,262 @@ function printHtml(html){
   document.getElementById('printArea').innerHTML = html;
   window.print();
 }
+/* ===================== FACTURES ===================== */
+function invoiceDueDate(inv){ return inv.dueDate || Utils.addDays(inv.date||Utils.todayISO(), 30); }
+function invoiceReste(inv){ return Math.max(0, Math.round(((Number(inv.totalTTC)||0) - (Number(inv.paid)||0))*100)/100); }
+const Invoices = {
+  filter:{q:'', status:'', page:1},
+  editLines:[],
+  async nextNumber(){
+    const res = await fetch('/api/next-number?type=invoice', {credentials:'same-origin'});
+    const json = await res.json();
+    if(!res.ok) throw new Error(json.error||'Erreur de numérotation');
+    return json.number;
+  },
+  computeTotals(lines, tva){ return Quotes.computeTotals(lines, tva); },
+  render(){
+    const list = Store.all('invoices').filter(inv=>{
+      if(Invoices.filter.status && inv.status!==Invoices.filter.status) return false;
+      if(Invoices.filter.q){ const s=Invoices.filter.q.toLowerCase(); if(!((inv.number||'').toLowerCase().includes(s)||(inv.object||'').toLowerCase().includes(s))) return false; }
+      return true;
+    }).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+    const pg = Pager.slice(Invoices.filter, list);
+    const totalTTC = Store.all('invoices').reduce((s,inv)=>s+(Number(inv.totalTTC)||0),0);
+    const totalPaid = Store.all('invoices').reduce((s,inv)=>s+(Number(inv.paid)||0),0);
+
+    const html = `
+      <div class="view-head">
+        <div><h2>Factures</h2><div class="sub">${Store.all('invoices').length} facture(s) · Reste à encaisser : ${Utils.fmtMoney(totalTTC-totalPaid)}</div></div>
+        <div class="view-actions"><button class="btn" id="btnNewInvoice">+ Nouvelle facture</button></div>
+      </div>
+      <div class="filters-row">
+        <input type="text" id="invSearch" placeholder="Rechercher..." value="${Utils.escapeHtml(Invoices.filter.q)}">
+        <select id="invStatusFilter">${Utils.optionsHtml(INVOICE_STATUSES, Invoices.filter.status, 'Tous les statuts')}</select>
+      </div>
+      <div class="card">
+        ${renderTable({columns:[
+          {label:'N°', render:inv=>`<b>${Utils.escapeHtml(inv.number)}</b>`},
+          {label:'Date', render:inv=>Utils.fmtDate(inv.date)},
+          {label:'Client', render:inv=>Utils.escapeHtml(Store.clientName(inv.clientId))},
+          {label:'Total TTC', num:true, render:inv=>Utils.fmtMoney(inv.totalTTC)},
+          {label:'Reste', num:true, render:inv=>Utils.fmtMoney(invoiceReste(inv))},
+          {label:'Échéance', render:inv=>{
+            if(inv.status==='Payée' || invoiceReste(inv)<=0) return Utils.fmtDate(invoiceDueDate(inv));
+            const days = Utils.daysBetween(invoiceDueDate(inv), Utils.todayISO());
+            return days>0 ? `${Utils.fmtDate(invoiceDueDate(inv))} <span class="badge b-red">Retard ${days}j</span>` : Utils.fmtDate(invoiceDueDate(inv));
+          }},
+          {label:'Statut', render:inv=>Utils.badge(inv.status)},
+          {label:'', actions:true, render:inv=>`<div class="row-actions">
+            <button class="icon-btn-sq" data-print-invoice="${inv.id}" title="Imprimer">🖨️</button>
+            <button class="icon-btn-sq" data-pdf-invoice="${inv.id}" title="Télécharger PDF">⬇️</button>
+            <button class="icon-btn-sq" data-edit-invoice="${inv.id}" title="Modifier">✏️</button>
+            <button class="icon-btn-sq danger" data-del-invoice="${inv.id}" title="Supprimer">🗑️</button>
+          </div>`},
+        ], rows:pg.items, emptyIcon:'🧾', emptyTitle:'Aucune facture', emptyText:'Créez une facture ou convertissez un devis accepté.'})}
+        ${Pager.html(Invoices.filter, pg.totalPages, pg.total)}
+      </div>
+    `;
+    setTimeout(()=>{
+      document.getElementById('btnNewInvoice').addEventListener('click', ()=>Invoices.openForm());
+      document.getElementById('invSearch').addEventListener('input', Utils.debounce(e=>{ Invoices.filter.q=e.target.value; Invoices.filter.page=1; renderView(); document.getElementById('invSearch').focus(); },250));
+      document.getElementById('invStatusFilter').addEventListener('change', e=>{ Invoices.filter.status=e.target.value; Invoices.filter.page=1; renderView(); });
+      document.querySelectorAll('[data-edit-invoice]').forEach(el=>el.addEventListener('click', ()=>Invoices.openForm(el.dataset.editInvoice)));
+      document.querySelectorAll('[data-del-invoice]').forEach(el=>el.addEventListener('click', ()=>Invoices.remove(el.dataset.delInvoice)));
+      document.querySelectorAll('[data-print-invoice]').forEach(el=>el.addEventListener('click', ()=>Invoices.print(el.dataset.printInvoice)));
+      document.querySelectorAll('[data-pdf-invoice]').forEach(el=>el.addEventListener('click', ()=>Invoices.downloadPdf(el.dataset.pdfInvoice)));
+      Pager.wire(Invoices.filter, pg.totalPages);
+    },0);
+    return html;
+  },
+  async openForm(id, preset){
+    const editing = id ? Store.get('invoices', id) : null;
+    Invoices.editLines = editing ? JSON.parse(JSON.stringify(editing.lines||[])) : (preset&&preset.lines ? JSON.parse(JSON.stringify(preset.lines)) : [{designation:'', unit:'u', qty:1, priceHT:0, discount:0}]);
+    let number = editing ? editing.number : null;
+    if(!editing){
+      try{ number = await Invoices.nextNumber(); }
+      catch(e){ UI.toast(e.message,'error'); return; }
+    }
+    const d = editing || Object.assign({
+      number, date:Utils.todayISO(), dueDate:Utils.addDays(Utils.todayISO(),30), clientId:'', projectId:'',
+      object:'', tva:Store.state.settings.tvaDefault||20, status:'Brouillon', paid:0, quoteId:null, situationId:null,
+    }, preset||{});
+    UI.openModal({
+      title: editing ? 'Modifier la facture' : 'Nouvelle facture', xwide:true,
+      bodyHtml:`
+        <form id="invoiceForm">
+          <div class="form-grid">
+            <div class="form-group third"><label>N° facture</label><input type="text" name="number" value="${Utils.escapeHtml(d.number)}" required></div>
+            <div class="form-group third"><label>Date</label><input type="date" name="date" value="${Utils.escapeHtml(d.date)}"></div>
+            <div class="form-group third"><label>Date d'échéance</label><input type="date" name="dueDate" value="${Utils.escapeHtml(d.dueDate||'')}"></div>
+            <div class="form-group half"><label>Client *</label><select name="clientId" required>${Utils.optionsHtml(Store.clientsOptions(), d.clientId, '— Sélectionner —')}</select></div>
+            <div class="form-group half"><label>Chantier</label><select name="projectId">${Utils.optionsHtml(Store.projectsOptions(), d.projectId, '— Aucun —')}</select></div>
+            <div class="form-group"><label>Objet</label><input type="text" name="object" value="${Utils.escapeHtml(d.object||'')}" placeholder="Ex: Situation n°2 — Villa Ain Diab..."></div>
+          </div>
+          <div class="divider"></div>
+          <div class="card-head"><div class="section-title">Lignes de la facture</div><button type="button" class="btn btn-sm" id="addLine">+ Ligne</button></div>
+          <div class="table-responsive"><table id="linesTable"><thead><tr><th>Désignation</th><th>Unité</th><th class="num">Qté</th><th class="num">P.U. HT</th><th class="num">Remise %</th><th class="num">Total HT</th><th></th></tr></thead><tbody id="linesBody"></tbody></table></div>
+          <div class="divider"></div>
+          <div style="display:flex;justify-content:flex-end;gap:20px;align-items:center;flex-wrap:wrap;">
+            <div class="form-group" style="max-width:140px;"><label>TVA (%)</label><input type="number" name="tva" id="invTva" value="${d.tva}" step="0.01"></div>
+            <div class="form-group" style="max-width:160px;"><label>Déjà payé (DH)</label><input type="number" name="paid" value="${d.paid||0}" step="0.01"></div>
+            <div class="form-group" style="max-width:180px;"><label>Statut</label><select name="status">${Utils.optionsHtml(INVOICE_STATUSES, d.status)}</select></div>
+          </div>
+          <div class="totals" style="margin-left:auto;max-width:280px;">
+            <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>Total HT</span><b id="sumHT">0,00 DH</b></div>
+            <div style="display:flex;justify-content:space-between;padding:4px 0;"><span>TVA</span><b id="sumTVA">0,00 DH</b></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:2px solid var(--border);font-size:16px;"><span>Total TTC</span><b id="sumTTC">0,00 DH</b></div>
+          </div>
+        </form>`,
+      footHtml:`<button class="btn btn-outline" id="cancelInvoice">Annuler</button><button class="btn" id="saveInvoice">Enregistrer</button>`,
+      onOpen(overlay){
+        function renderLines(){
+          overlay.querySelector('#linesBody').innerHTML = Invoices.editLines.map((l,i)=>`
+            <tr>
+              <td><input type="text" data-li="${i}" data-f="designation" value="${Utils.escapeHtml(l.designation)}" style="min-width:160px;"></td>
+              <td><input type="text" data-li="${i}" data-f="unit" value="${Utils.escapeHtml(l.unit)}" style="width:70px;"></td>
+              <td class="num"><input type="number" data-li="${i}" data-f="qty" value="${l.qty}" step="0.01" style="width:80px;text-align:right;"></td>
+              <td class="num"><input type="number" data-li="${i}" data-f="priceHT" value="${l.priceHT}" step="0.01" style="width:100px;text-align:right;"></td>
+              <td class="num"><input type="number" data-li="${i}" data-f="discount" value="${l.discount||0}" step="0.01" style="width:80px;text-align:right;"></td>
+              <td class="num" style="white-space:nowrap;" data-total="${i}">${Utils.fmtMoney((l.qty||0)*(l.priceHT||0)*(1-(l.discount||0)/100))}</td>
+              <td><button type="button" class="icon-btn-sq danger" data-rmline="${i}">✕</button></td>
+            </tr>`).join('');
+          overlay.querySelectorAll('[data-li]').forEach(inp=>inp.addEventListener('input', ()=>{
+            const i = +inp.dataset.li, f = inp.dataset.f;
+            Invoices.editLines[i][f] = (f==='designation'||f==='unit') ? inp.value : parseFloat(inp.value)||0;
+            recalc();
+            if(f!=='designation' && f!=='unit'){
+              const l2 = Invoices.editLines[i];
+              overlay.querySelector(`[data-total="${i}"]`).textContent = Utils.fmtMoney((l2.qty||0)*(l2.priceHT||0)*(1-(l2.discount||0)/100));
+            }
+          }));
+          overlay.querySelectorAll('[data-rmline]').forEach(btn=>btn.addEventListener('click', ()=>{
+            Invoices.editLines.splice(+btn.dataset.rmline,1); renderLines(); recalc();
+          }));
+        }
+        function recalc(){
+          const tva = parseFloat(overlay.querySelector('#invTva').value)||0;
+          const t = Invoices.computeTotals(Invoices.editLines, tva);
+          overlay.querySelector('#sumHT').textContent = Utils.fmtMoney(t.totalHT);
+          overlay.querySelector('#sumTVA').textContent = Utils.fmtMoney(t.tvaAmount);
+          overlay.querySelector('#sumTTC').textContent = Utils.fmtMoney(t.totalTTC);
+        }
+        renderLines(); recalc();
+        overlay.querySelector('#addLine').addEventListener('click', ()=>{ Invoices.editLines.push({designation:'',unit:'u',qty:1,priceHT:0,discount:0}); renderLines(); recalc(); });
+        overlay.querySelector('#invTva').addEventListener('input', recalc);
+        overlay.querySelector('#cancelInvoice').addEventListener('click', UI.closeModal);
+        overlay.querySelector('#saveInvoice').addEventListener('click', ()=>{
+          const form = overlay.querySelector('#invoiceForm');
+          const fd = new FormData(form);
+          if(!fd.get('clientId')){ UI.toast('Le client est obligatoire.','error'); return; }
+          if(!Invoices.editLines.length || Invoices.editLines.every(l=>!l.designation.trim())){ UI.toast('Ajoutez au moins une ligne à la facture.','error'); return; }
+          const tva = parseFloat(fd.get('tva'))||0;
+          const totals = Invoices.computeTotals(Invoices.editLines, tva);
+          const data = {
+            number:fd.get('number'), date:fd.get('date'), dueDate:fd.get('dueDate')||null, clientId:fd.get('clientId'),
+            projectId:fd.get('projectId')||null, object:fd.get('object'), tva, status:fd.get('status'),
+            paid:parseFloat(fd.get('paid'))||0,
+            lines: JSON.parse(JSON.stringify(Invoices.editLines)), totalHT:totals.totalHT, tvaAmount:totals.tvaAmount, totalTTC:totals.totalTTC,
+            quoteId: d.quoteId||null, situationId: d.situationId||null,
+          };
+          if(editing) Store.update('invoices', id, data); else Store.add('invoices', data);
+          UI.closeModal(); UI.toast(editing?'Facture mise à jour.':'Facture créée.', 'success');
+          renderView(); renderNav();
+        });
+      }
+    });
+  },
+  async createFromQuote(quoteId){
+    const q = Store.get('quotes', quoteId);
+    if(!q) return;
+    await Invoices.openForm(null, {
+      clientId:q.clientId, projectId:q.projectId||'', object:q.object, tva:q.tva,
+      lines:q.lines, quoteId:q.id,
+    });
+  },
+  async createFromSituation(situationId){
+    const s = Store.get('situations', situationId);
+    if(!s) return;
+    const p = Store.get('projects', s.projectId);
+    await Invoices.openForm(null, {
+      clientId: p?p.clientId:'', projectId:s.projectId||'', tva:s.tva,
+      object:`Situation ${s.number}${s.period?(' — '+s.period):''}`,
+      lines:[{designation:`Situation de travaux ${s.number} (avancement ${s.progress||0}%)`, unit:'forfait', qty:1, priceHT: Math.round(((Number(s.amountHT)||0)-(Number(s.retenue)||0))*100)/100, discount:0}],
+      situationId:s.id,
+    });
+  },
+  remove(id){
+    UI.confirm('Supprimer cette facture ?', ()=>{ Store.remove('invoices', id); UI.toast('Facture supprimée.','success'); renderView(); });
+  },
+  print(id){
+    const inv = Store.get('invoices', id);
+    const c = Store.get('clients', inv.clientId);
+    const company = Store.state.settings.company;
+    const html = `
+      <div class="print-doc">
+        <div class="ph">
+          <div>
+            ${company.logo ? `<img src="${company.logo}" style="max-height:60px;max-width:180px;margin-bottom:8px;">` : ''}
+            <h1>${Utils.escapeHtml(company.name||'Mon Entreprise')}</h1>
+            <div>${Utils.escapeHtml(company.address||'')}</div>
+            <div>${Utils.escapeHtml(company.phone||'')} ${company.email?(' · '+Utils.escapeHtml(company.email)):''}</div>
+            <div>${company.ice?('ICE: '+Utils.escapeHtml(company.ice)):''} ${company.ifiscal?(' · IF: '+Utils.escapeHtml(company.ifiscal)):''}</div>
+          </div>
+          <div style="text-align:right;">
+            <h1>FACTURE</h1>
+            <div><b>${Utils.escapeHtml(inv.number)}</b></div>
+            <div>Date : ${Utils.fmtDate(inv.date)}</div>
+            <div>Échéance : ${Utils.fmtDate(invoiceDueDate(inv))}</div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:14px;">
+          <div><b>Client :</b><br>${Utils.escapeHtml(c?c.name:'—')}${c&&c.company?('<br>'+Utils.escapeHtml(c.company)):''}${c&&c.address?('<br>'+Utils.escapeHtml(c.address)):''}${c&&c.ice?('<br>ICE: '+Utils.escapeHtml(c.ice)):''}</div>
+          <div><b>Objet :</b><br>${Utils.escapeHtml(inv.object||'—')}</div>
+        </div>
+        <table>
+          <thead><tr><th>Désignation</th><th>Unité</th><th>Qté</th><th>P.U. HT</th><th>Remise</th><th>Total HT</th></tr></thead>
+          <tbody>${(inv.lines||[]).map(l=>`<tr><td>${Utils.escapeHtml(l.designation)}</td><td>${Utils.escapeHtml(l.unit)}</td><td>${Utils.fmtNum(l.qty)}</td><td>${Utils.fmtMoney(l.priceHT)}</td><td>${l.discount||0}%</td><td>${Utils.fmtMoney((l.qty||0)*(l.priceHT||0)*(1-(l.discount||0)/100))}</td></tr>`).join('')}</tbody>
+        </table>
+        <div class="totals">
+          <div><span>Total HT</span><b>${Utils.fmtMoney(inv.totalHT)}</b></div>
+          <div><span>TVA (${inv.tva}%)</span><b>${Utils.fmtMoney(inv.tvaAmount)}</b></div>
+          <div class="grand"><span>Total TTC</span><b>${Utils.fmtMoney(inv.totalTTC)}</b></div>
+          <div><span>Déjà payé</span><b>${Utils.fmtMoney(inv.paid)}</b></div>
+          <div><span>Reste à payer</span><b>${Utils.fmtMoney(invoiceReste(inv))}</b></div>
+        </div>
+        <p style="margin-top:40px;font-size:11.5px;color:#555;">Facture générée par CHANTIER MANAGER.</p>
+      </div>`;
+    printHtml(html);
+  },
+  downloadPdf(id){
+    const jsPDFClass = Pdf.ensure(); if(!jsPDFClass) return;
+    const inv = Store.get('invoices', id);
+    const c = Store.get('clients', inv.clientId);
+    const company = Store.state.settings.company;
+    const doc = new jsPDFClass({unit:'mm', format:'a4'});
+    let y = Pdf.header(doc, company, 'FACTURE', [
+      inv.number, 'Date : '+Utils.fmtDate(inv.date), 'Échéance : '+Utils.fmtDate(invoiceDueDate(inv))
+    ]);
+    y = Pdf.infoBlock(doc, y, 'CLIENT', [c?c.name:'—', c&&c.company, c&&c.address, c&&c.ice?('ICE: '+c.ice):null]);
+    if(inv.object){ doc.setFont('helvetica','italic'); doc.setFontSize(9.5); doc.setTextColor(70); doc.text('Objet : '+inv.object, 14, y); doc.setTextColor(20); y += 7; }
+    y = Pdf.table(doc, y, [
+      {header:'DÉSIGNATION', width:76, render:l=>l.designation||''},
+      {header:'UNITÉ', width:18, render:l=>l.unit||''},
+      {header:'QTÉ', width:18, align:'right', render:l=>Utils.fmtNum(l.qty)},
+      {header:'P.U. HT', width:26, align:'right', render:l=>Utils.fmtMoney(l.priceHT)},
+      {header:'REMISE', width:18, align:'right', render:l=>(l.discount||0)+'%'},
+      {header:'TOTAL HT', width:26, align:'right', render:l=>Utils.fmtMoney((l.qty||0)*(l.priceHT||0)*(1-(l.discount||0)/100))},
+    ], inv.lines||[]);
+    y = Pdf.totalsBlock(doc, y+4, [
+      {label:'Total HT', value:Utils.fmtMoney(inv.totalHT)},
+      {label:`TVA (${inv.tva}%)`, value:Utils.fmtMoney(inv.tvaAmount)},
+      {label:'Total TTC', value:Utils.fmtMoney(inv.totalTTC), strong:true},
+      {label:'Déjà payé', value:Utils.fmtMoney(inv.paid)},
+      {label:'Reste à payer', value:Utils.fmtMoney(invoiceReste(inv))},
+    ]);
+    Pdf.footer(doc, 'Facture générée par CHANTIER MANAGER');
+    doc.save(`${inv.number}.pdf`);
+  }
+};
 /* ===================== SITUATIONS DE TRAVAUX ===================== */
 function situationDueDate(s){
   return s.dueDate || Utils.addDays((s.createdAt||Utils.todayISO()).slice(0,10), 30);
@@ -2288,7 +2658,7 @@ const Situations = {
             return days>0 ? `${Utils.fmtDate(situationDueDate(s))} <span class="badge b-red">Retard ${days}j</span>` : Utils.fmtDate(situationDueDate(s));
           }},
           {label:'Statut', render:s=>Utils.badge(s.status)},
-          {label:'', actions:true, render:s=>`<div class="row-actions"><button class="icon-btn-sq" data-print-sit="${s.id}" title="Imprimer">🖨️</button><button class="icon-btn-sq" data-pdf-sit="${s.id}" title="Télécharger PDF">⬇️</button><button class="icon-btn-sq" data-edit-sit="${s.id}" title="Modifier">✏️</button><button class="icon-btn-sq danger" data-del-sit="${s.id}" title="Supprimer">🗑️</button></div>`},
+          {label:'', actions:true, render:s=>`<div class="row-actions"><button class="icon-btn-sq" data-to-invoice-sit="${s.id}" title="Convertir en facture" style="color:var(--primary);">🧾</button><button class="icon-btn-sq" data-print-sit="${s.id}" title="Imprimer">🖨️</button><button class="icon-btn-sq" data-pdf-sit="${s.id}" title="Télécharger PDF">⬇️</button><button class="icon-btn-sq" data-edit-sit="${s.id}" title="Modifier">✏️</button><button class="icon-btn-sq danger" data-del-sit="${s.id}" title="Supprimer">🗑️</button></div>`},
         ], rows:pg.items, emptyIcon:'📈', emptyTitle:'Aucune situation', emptyText:'Créez une situation de travaux pour un chantier.'})}
         ${Pager.html(Situations.filter, pg.totalPages, pg.total)}
       </div>
@@ -2302,6 +2672,7 @@ const Situations = {
       document.querySelectorAll('[data-del-sit]').forEach(el=>el.addEventListener('click', ()=>Situations.remove(el.dataset.delSit)));
       document.querySelectorAll('[data-print-sit]').forEach(el=>el.addEventListener('click', ()=>Situations.print(el.dataset.printSit)));
       document.querySelectorAll('[data-pdf-sit]').forEach(el=>el.addEventListener('click', ()=>Situations.downloadPdf(el.dataset.pdfSit)));
+      document.querySelectorAll('[data-to-invoice-sit]').forEach(el=>el.addEventListener('click', ()=>Invoices.createFromSituation(el.dataset.toInvoiceSit)));
       Pager.wire(Situations.filter, pg.totalPages);
     },0);
     return html;
@@ -2525,6 +2896,31 @@ const Documents = {
 /* ===================== REPORTS ===================== */
 const Reports = {
   selected:'',
+  tvaMonth: (()=>{ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); })(),
+  tvaSummary(monthKey){
+    const invoicesInMonth = Store.all('invoices').filter(inv=>(inv.date||'').startsWith(monthKey));
+    const expensesInMonth = Store.all('expenses').filter(e=>(e.date||'').startsWith(monthKey));
+    const collectee = invoicesInMonth.reduce((s,inv)=>s+(Number(inv.tvaAmount)||0),0);
+    const deductible = expensesInMonth.reduce((s,e)=>{
+      const ht = Number(e.amountHT)||0, tva = Number(e.tva)||0;
+      return s + Math.round(ht*tva/100*100)/100;
+    },0);
+    return { collectee, deductible, due: Math.round((collectee-deductible)*100)/100, invoicesCount: invoicesInMonth.length, expensesCount: expensesInMonth.length };
+  },
+  tvaHtml(){
+    const t = Reports.tvaSummary(Reports.tvaMonth);
+    return `<div class="card" style="margin-bottom:18px;">
+      <div class="card-head">
+        <div><div class="section-title">Récapitulatif TVA (indicatif)</div><div class="sub" style="font-size:11.5px;color:var(--text-muted);">Basé sur les factures émises et les dépenses du mois — à vérifier avec votre comptable avant toute déclaration officielle.</div></div>
+        <input type="month" id="tvaMonthSel" value="${Reports.tvaMonth}">
+      </div>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));">
+        <div class="stat-mini"><span class="v">${Utils.fmtMoney(t.collectee)}</span><span class="l">TVA collectée (${t.invoicesCount} facture(s))</span></div>
+        <div class="stat-mini"><span class="v">${Utils.fmtMoney(t.deductible)}</span><span class="l">TVA déductible (${t.expensesCount} dépense(s))</span></div>
+        <div class="stat-mini"><span class="v" style="color:${t.due>=0?'var(--danger)':'var(--success)'}">${Utils.fmtMoney(Math.abs(t.due))}</span><span class="l">${t.due>=0?'TVA due':'Crédit de TVA'}</span></div>
+      </div>
+    </div>`;
+  },
   render(){
     const projects = Store.all('projects');
     if(!Reports.selected && projects.length) Reports.selected = projects[0].id;
@@ -2539,6 +2935,7 @@ const Reports = {
           <button class="btn btn-outline" id="btnPdfReport" ${p?'':'disabled'}>⬇️ Télécharger PDF</button>
         </div>
       </div>
+      ${Reports.tvaHtml()}
       ${p ? Reports.projectReportHtml(p) : `<div class="card"><div class="empty-state"><div class="es-ic">📑</div><h4>Aucun chantier</h4><p>Créez un chantier pour générer un rapport.</p></div></div>`}
       <div class="divider"></div>
       ${Reports.globalOverviewHtml()}
@@ -2550,6 +2947,8 @@ const Reports = {
       if(pb) pb.addEventListener('click', ()=>Reports.print(Reports.selected));
       const pdfb = document.getElementById('btnPdfReport');
       if(pdfb) pdfb.addEventListener('click', ()=>Reports.downloadPdf(Reports.selected));
+      const tvaSel = document.getElementById('tvaMonthSel');
+      if(tvaSel) tvaSel.addEventListener('change', e=>{ Reports.tvaMonth = e.target.value; renderView(); });
       const canvas = document.getElementById('reportChart');
       if(canvas && p){
         const m = Reports.metrics(p);
@@ -2690,7 +3089,7 @@ const Settings = {
             <div class="form-group half"><label>IF</label><input type="text" name="ifiscal" value="${Utils.escapeHtml(c.ifiscal)}"></div>
             <div class="form-group third"><label>TVA par défaut (%)</label><input type="number" name="tvaDefault" value="${s.tvaDefault}" step="0.01"></div>
             <div class="form-group third"><label>Retenue de garantie par défaut (%)</label><input type="number" name="retenueDefault" value="${s.retenueDefault}" step="0.01"></div>
-            <div class="form-group third"><label>Devise</label><select name="currency"><option value="MAD" selected>MAD (DH)</option></select></div>
+            <div class="form-group third"><label>Devise</label><select name="currency">${Utils.optionsHtml([{value:'MAD',label:'MAD (DH)'},{value:'EUR',label:'EUR (€)'},{value:'USD',label:'USD ($)'}], s.currency||'MAD')}</select></div>
           </div>
           <button type="button" class="btn" id="saveSettings" style="margin-top:16px;">Enregistrer</button>
         </form>
@@ -2701,7 +3100,7 @@ const Settings = {
         <div class="checkbox-row"><input type="checkbox" id="darkModeToggle" ${document.documentElement.getAttribute('data-theme')==='dark'?'checked':''}><span>Mode sombre</span></div>
       </div>
 
-      <div class="card">
+      <div class="card" style="margin-bottom:18px;">
         <div class="section-title" style="margin-bottom:10px;">Gestion des données</div>
         <p style="font-size:12.8px;color:var(--text-muted);margin-bottom:14px;">Vos données sont stockées de façon centralisée sur le serveur (PostgreSQL), accessibles depuis n'importe quel appareil connecté à internet. Exportez régulièrement une copie de sauvegarde par précaution.</p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -2712,6 +3111,26 @@ const Settings = {
           <button class="btn btn-danger" id="resetDataBtn">🗑️ Réinitialiser les données</button>
         </div>
       </div>
+
+      <div class="card" style="margin-bottom:18px;">
+        <div class="section-title" style="margin-bottom:10px;">Mon compte</div>
+        <p style="font-size:12.8px;color:var(--text-muted);margin-bottom:14px;">Connecté en tant que <b>${Utils.escapeHtml(Auth.user.name||Auth.user.username)}</b> (${Auth.roleLabel(Auth.user.role)}).</p>
+        <form id="pwdForm" class="form-grid" style="max-width:420px;">
+          <div class="form-group half"><label>Mot de passe actuel</label><input type="password" name="oldPassword" required></div>
+          <div class="form-group half"><label>Nouveau mot de passe</label><input type="password" name="newPassword" required minlength="4"></div>
+          <button type="button" class="btn btn-outline" id="changePwdBtn">Changer le mot de passe</button>
+        </form>
+      </div>
+
+      ${Auth.isAdmin() ? `
+      <div class="card" style="margin-bottom:18px;">
+        <div class="card-head"><div class="section-title">Utilisateurs</div><button class="btn btn-sm" id="btnNewUser">+ Nouveau compte</button></div>
+        <div id="usersSection"><div class="empty-state" style="padding:20px;"><p>Chargement...</p></div></div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin-bottom:10px;">Journal d'audit</div>
+        <div id="auditSection"><div class="empty-state" style="padding:20px;"><p>Chargement...</p></div></div>
+      </div>` : ''}
     `;
     setTimeout(()=>{
       let pendingLogo = c.logo;
@@ -2747,8 +3166,102 @@ const Settings = {
           Router.navigate('dashboard');
         }, {okLabel:'Tout réinitialiser', danger:true});
       });
+      document.getElementById('changePwdBtn').addEventListener('click', async ()=>{
+        const fd = new FormData(document.getElementById('pwdForm'));
+        const oldPassword = fd.get('oldPassword'), newPassword = fd.get('newPassword');
+        if(!oldPassword || !newPassword){ UI.toast('Remplissez les deux champs.','error'); return; }
+        try{
+          await Auth.changePassword(oldPassword, newPassword);
+          UI.toast('Mot de passe mis à jour.', 'success');
+          document.getElementById('pwdForm').reset();
+        }catch(e){ UI.toast(e.message, 'error'); }
+      });
+      if(Auth.isAdmin()){
+        Settings.loadUsers();
+        Settings.loadAudit();
+        document.getElementById('btnNewUser').addEventListener('click', ()=>Settings.openUserForm());
+      }
     },0);
     return html;
+  },
+  async loadUsers(){
+    const el = document.getElementById('usersSection');
+    if(!el) return;
+    try{
+      const res = await fetch('/api/users', {credentials:'same-origin'});
+      const json = await res.json();
+      if(!res.ok) throw new Error(json.error||'Erreur');
+      el.innerHTML = renderTable({columns:[
+        {label:'Identifiant', render:u=>`<b>${Utils.escapeHtml(u.username)}</b>`},
+        {label:'Nom', render:u=>Utils.escapeHtml(u.name)},
+        {label:'Rôle', render:u=>Utils.escapeHtml(Auth.roleLabel(u.role))},
+        {label:'Créé le', render:u=>Utils.fmtDate(u.created_at.slice(0,10))},
+        {label:'', actions:true, render:u=>u.id===Auth.user.id?'' : `<div class="row-actions"><button class="icon-btn-sq danger" data-del-user="${u.id}" title="Supprimer">🗑️</button></div>`},
+      ], rows:json.users, emptyIcon:'👤', emptyTitle:'Aucun utilisateur'});
+      el.querySelectorAll('[data-del-user]').forEach(btn=>btn.addEventListener('click', ()=>{
+        UI.confirm('Supprimer ce compte ?', async ()=>{
+          try{
+            const r = await fetch('/api/users/'+btn.dataset.delUser, {method:'DELETE', credentials:'same-origin'});
+            const j = await r.json();
+            if(!r.ok) throw new Error(j.error);
+            UI.toast('Compte supprimé.', 'success');
+            Settings.loadUsers();
+          }catch(e){ UI.toast(e.message, 'error'); }
+        }, {okLabel:'Supprimer', danger:true});
+      }));
+    }catch(e){
+      el.innerHTML = `<div class="empty-state" style="padding:20px;"><p>Erreur de chargement : ${Utils.escapeHtml(e.message)}</p></div>`;
+    }
+  },
+  async loadAudit(){
+    const el = document.getElementById('auditSection');
+    if(!el) return;
+    try{
+      const res = await fetch('/api/audit?limit=50', {credentials:'same-origin'});
+      const json = await res.json();
+      if(!res.ok) throw new Error(json.error||'Erreur');
+      el.innerHTML = renderTable({columns:[
+        {label:'Date', render:a=>Utils.fmtDateTime(a.at)},
+        {label:'Utilisateur', render:a=>Utils.escapeHtml(a.name||a.username||'—')},
+        {label:'Action', render:a=>Utils.escapeHtml(a.summary)},
+      ], rows:json.entries, emptyIcon:'📜', emptyTitle:'Aucune activité enregistrée'});
+    }catch(e){
+      el.innerHTML = `<div class="empty-state" style="padding:20px;"><p>Erreur de chargement : ${Utils.escapeHtml(e.message)}</p></div>`;
+    }
+  },
+  openUserForm(){
+    UI.openModal({
+      title:'Nouveau compte utilisateur',
+      bodyHtml:`<form id="userForm"><div class="form-grid">
+        <div class="form-group half"><label>Identifiant *</label><input type="text" name="username" required></div>
+        <div class="form-group half"><label>Nom complet *</label><input type="text" name="name" required></div>
+        <div class="form-group half"><label>Mot de passe *</label><input type="password" name="password" required minlength="4"></div>
+        <div class="form-group half"><label>Rôle *</label><select name="role">
+          <option value="comptable">Comptable</option>
+          <option value="chef_chantier">Chef de chantier</option>
+          <option value="admin">Administrateur</option>
+        </select></div>
+      </div></form>`,
+      footHtml:`<button class="btn btn-outline" id="cancelUser">Annuler</button><button class="btn" id="saveUser">Créer</button>`,
+      onOpen(overlay){
+        overlay.querySelector('#cancelUser').addEventListener('click', UI.closeModal);
+        overlay.querySelector('#saveUser').addEventListener('click', async ()=>{
+          const fd = new FormData(overlay.querySelector('#userForm'));
+          if(!fd.get('username')||!fd.get('name')||!fd.get('password')){ UI.toast('Tous les champs sont obligatoires.','error'); return; }
+          try{
+            const res = await fetch('/api/users', {
+              method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({username:fd.get('username'), name:fd.get('name'), password:fd.get('password'), role:fd.get('role')})
+            });
+            const json = await res.json();
+            if(!res.ok) throw new Error(json.error||'Erreur');
+            UI.closeModal();
+            UI.toast('Compte créé.', 'success');
+            Settings.loadUsers();
+          }catch(e){ UI.toast(e.message, 'error'); }
+        });
+      }
+    });
   }
 };
 function exportData(){
@@ -2868,6 +3381,17 @@ function seedDemoData(){
   addSituation(p2.id, 'SIT-001', 'Février 2026', 20, 800000, 10, 20, 777600, 'Payée', -160);
   addSituation(p2.id, 'SIT-002', 'Mai 2026', 32, 600000, 10, 20, 300000, 'Envoyée', -50);
 
+  function addInvoice(number, date, dueDate, clientId, projectId, object, status, paid, lines){
+    const t = Quotes.computeTotals(lines, 20);
+    Store.add('invoices', {number, date, dueDate, clientId, projectId, object, tva:20, status, paid, lines, totalHT:t.totalHT, tvaAmount:t.tvaAmount, totalTTC:t.totalTTC});
+  }
+  addInvoice('FAC-2026-0001', iso(-100), iso(-70), c1.id, p1.id, 'Situation SIT-001 — Villa Ain Diab', 'Payée', 291600, [
+    {designation:'Situation de travaux SIT-001 (avancement 25%)', unit:'forfait', qty:1, priceHT:270000, discount:0},
+  ]);
+  addInvoice('FAC-2026-0002', iso(-15), iso(15), c3.id, p3.id, 'Rénovation plateau bureaux — acompte', 'Envoyée', 0, [
+    {designation:'Démolition cloisons existantes', unit:'forfait', qty:1, priceHT:15000, discount:0},
+  ]);
+
   Store.add('journal', {projectId:p1.id, date:iso(-6), time:'09:30', event:'Coulage dalle 1er étage', note:'Livraison béton effectuée, coulage terminé sans incident.', photoDataUrl:null});
   Store.add('journal', {projectId:p1.id, date:iso(-1), time:'14:00', event:'Réception carrelage', note:'Livraison partielle du carrelage, reste 40m² à recevoir.', photoDataUrl:null});
   Store.add('journal', {projectId:p2.id, date:iso(-4), time:'08:00', event:'Contrôle ferraillage', note:'Contrôle bureau d\'études validé pour le niveau R+2.', photoDataUrl:null});
@@ -2878,20 +3402,24 @@ function seedDemoData(){
 /* ===================== APP BOOT ===================== */
 function buildQuickAddMenu(){
   const menu = document.getElementById('quickAddMenu');
-  const items = [
+  const financeRoles = ['admin','comptable'];
+  const allItems = [
     {icon:'🏗️', label:'Nouveau chantier', fn:()=>Projects.openForm()},
-    {icon:'👥', label:'Nouveau client', fn:()=>Clients.openForm()},
-    {icon:'📄', label:'Nouveau devis', fn:()=>Quotes.openForm()},
-    {icon:'💸', label:'Nouvelle dépense', fn:()=>Expenses.openForm()},
-    {icon:'📈', label:'Nouvelle situation', fn:()=>Situations.openForm()},
+    {icon:'👥', label:'Nouveau client', fn:()=>Clients.openForm(), roles:financeRoles},
+    {icon:'📄', label:'Nouveau devis', fn:()=>Quotes.openForm(), roles:financeRoles},
+    {icon:'🧾', label:'Nouvelle facture', fn:()=>Invoices.openForm(), roles:financeRoles},
+    {icon:'💸', label:'Nouvelle dépense', fn:()=>Expenses.openForm(), roles:financeRoles},
+    {icon:'📈', label:'Nouvelle situation', fn:()=>Situations.openForm(), roles:financeRoles},
     {icon:'👷', label:'Nouvel employé', fn:()=>Employees.openForm()},
     {icon:'🧱', label:'Nouveau matériau', fn:()=>Materials.openForm()},
   ];
+  const items = allItems.filter(it=>!it.roles || it.roles.includes(Auth.user && Auth.user.role));
   menu.innerHTML = items.map((it,i)=>`<button data-qmi="${i}">${it.icon} ${it.label}</button>`).join('');
   menu.querySelectorAll('[data-qmi]').forEach(btn=>btn.addEventListener('click', ()=>{ menu.classList.remove('open'); items[+btn.dataset.qmi].fn(); }));
 }
 
 function showConnectionError(){
+  document.getElementById('splash').classList.remove('out');
   document.getElementById('splash').innerHTML = `
     <div class="splash-logo">⚠️</div>
     <div class="splash-title">Connexion impossible</div>
@@ -2899,11 +3427,43 @@ function showConnectionError(){
     <button class="btn" style="margin-top:16px;" onclick="location.reload()">Réessayer</button>
   `;
 }
+function showLoginScreen(){
+  document.getElementById('splash').classList.add('out');
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('app').classList.add('hidden');
+  const form = document.getElementById('loginForm');
+  const errBox = document.getElementById('loginError');
+  form.reset();
+  errBox.classList.add('hidden');
+  form.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(form);
+    const btn = document.getElementById('loginSubmit');
+    btn.disabled = true; btn.textContent = 'Connexion...';
+    try{
+      await Auth.login(fd.get('username'), fd.get('password'));
+      location.reload();
+    }catch(err){
+      errBox.textContent = err.message;
+      errBox.classList.remove('hidden');
+    }finally{
+      btn.disabled = false; btn.textContent = 'Se connecter';
+    }
+  };
+}
 async function boot(){
+  let user;
+  try{ user = await Auth.me(); }
+  catch(e){ console.error('Erreur de vérification de session', e); showConnectionError(); return; }
+  if(!user){ showLoginScreen(); return; }
+  await startApp();
+}
+async function startApp(){
   try{
     await Store.init();
   }catch(e){
     console.error('Impossible de charger les données depuis le serveur', e);
+    if(e && e.authExpired){ showLoginScreen(); return; }
     showConnectionError();
     return;
   }
@@ -2911,6 +3471,16 @@ async function boot(){
   const theme = Store.state.settings.theme || 'light';
   document.documentElement.setAttribute('data-theme', theme);
   document.getElementById('btnTheme').textContent = theme==='dark' ? '☀️' : '🌙';
+
+  document.getElementById('userAvatar').textContent = (Auth.user.name||Auth.user.username||'?').slice(0,2).toUpperCase();
+  document.getElementById('userMiniName').textContent = Auth.user.name || Auth.user.username;
+  document.getElementById('userMiniRole').textContent = Auth.roleLabel(Auth.user.role);
+  document.getElementById('btnLogout').addEventListener('click', async ()=>{
+    UI.confirm('Se déconnecter ?', async ()=>{
+      await Auth.logout();
+      location.reload();
+    }, {okLabel:'Se déconnecter', danger:false});
+  });
 
   if(Store.firstRun){
     seedDemoData();

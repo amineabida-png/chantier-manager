@@ -4,7 +4,7 @@
    (données PostgreSQL) ne sont JAMAIS mis en cache — toujours réseau direct, sinon
    l'utilisateur pourrait voir des données périmées. Incrémenter CACHE_NAME à chaque
    changement de fichiers pour forcer la mise à jour chez les utilisateurs. */
-const CACHE_NAME = 'chantier-manager-v2';
+const CACHE_NAME = 'chantier-manager-v3';
 const APP_SHELL = [
   './',
   './index.html',
