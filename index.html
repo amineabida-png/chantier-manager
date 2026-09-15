@@ -397,6 +397,19 @@ canvas.chart-canvas{width:100%; display:block;}
     <div class="form-group"><label>Mot de passe</label><input type="password" name="password" autocomplete="current-password" required></div>
     <div id="loginError" class="login-error hidden"></div>
     <button type="submit" class="btn btn-block" id="loginSubmit">Se connecter</button>
+    <p class="login-sub" style="margin-top:14px;">Nouvelle entreprise ? <a href="#" id="goToSignup">Créer un espace</a></p>
+  </form>
+  <form class="login-box hidden" id="signupForm">
+    <div class="brand-mark" style="width:52px;height:52px;font-size:24px;margin:0 auto 14px;">🏗️</div>
+    <h1>Créer votre espace</h1>
+    <p class="login-sub">Vos données seront isolées des autres entreprises</p>
+    <div class="form-group"><label>Nom de l'entreprise</label><input type="text" name="orgName" required autofocus></div>
+    <div class="form-group"><label>Votre nom</label><input type="text" name="name" required></div>
+    <div class="form-group"><label>Identifiant</label><input type="text" name="username" autocomplete="username" required></div>
+    <div class="form-group"><label>Mot de passe</label><input type="password" name="password" autocomplete="new-password" required minlength="4"></div>
+    <div id="signupError" class="login-error hidden"></div>
+    <button type="submit" class="btn btn-block" id="signupSubmit">Créer mon espace</button>
+    <p class="login-sub" style="margin-top:14px;">Déjà un compte ? <a href="#" id="goToLogin">Se connecter</a></p>
   </form>
 </div>
 
@@ -606,6 +619,17 @@ const Auth = {
     });
     const json = await res.json();
     if(!res.ok) throw new Error(json.error || 'Connexion impossible.');
+    Auth.user = json.user;
+    return json.user;
+  },
+  async signup(orgName, username, password, name){
+    const res = await fetch('/api/auth/signup', {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({orgName, username, password, name})
+    });
+    const json = await res.json();
+    if(!res.ok) throw new Error(json.error || 'Inscription impossible.');
     Auth.user = json.user;
     return json.user;
   },
@@ -3431,23 +3455,55 @@ function showLoginScreen(){
   document.getElementById('splash').classList.add('out');
   document.getElementById('loginScreen').classList.remove('hidden');
   document.getElementById('app').classList.add('hidden');
-  const form = document.getElementById('loginForm');
-  const errBox = document.getElementById('loginError');
-  form.reset();
-  errBox.classList.add('hidden');
-  form.onsubmit = async (e)=>{
+
+  const loginForm = document.getElementById('loginForm');
+  const signupForm = document.getElementById('signupForm');
+  const loginErr = document.getElementById('loginError');
+  const signupErr = document.getElementById('signupError');
+  loginForm.reset(); signupForm.reset();
+  loginErr.classList.add('hidden'); signupErr.classList.add('hidden');
+  loginForm.classList.remove('hidden'); signupForm.classList.add('hidden');
+
+  document.getElementById('goToSignup').onclick = (e)=>{
     e.preventDefault();
-    const fd = new FormData(form);
+    loginForm.classList.add('hidden');
+    signupForm.classList.remove('hidden');
+  };
+  document.getElementById('goToLogin').onclick = (e)=>{
+    e.preventDefault();
+    signupForm.classList.add('hidden');
+    loginForm.classList.remove('hidden');
+  };
+
+  loginForm.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(loginForm);
     const btn = document.getElementById('loginSubmit');
     btn.disabled = true; btn.textContent = 'Connexion...';
     try{
       await Auth.login(fd.get('username'), fd.get('password'));
       location.reload();
     }catch(err){
-      errBox.textContent = err.message;
-      errBox.classList.remove('hidden');
+      loginErr.textContent = err.message;
+      loginErr.classList.remove('hidden');
     }finally{
       btn.disabled = false; btn.textContent = 'Se connecter';
+    }
+  };
+
+  signupForm.onsubmit = async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(signupForm);
+    const btn = document.getElementById('signupSubmit');
+    btn.disabled = true; btn.textContent = 'Création...';
+    try{
+      await Auth.signup(fd.get('orgName'), fd.get('username'), fd.get('password'), fd.get('name'));
+      location.reload();
+    }catch(err){
+      signupErr.textContent = err.message;
+      signupErr.classList.remove('hidden');
+    }finally{
+      btn.disabled = false; btn.textContent = 'Créer mon espace';
     }
   };
 }

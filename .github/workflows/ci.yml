@@ -46,18 +46,29 @@ jobs:
       - name: Check server.js syntax
         run: node --check server.js
 
-      - name: Start server and check /api/health
+      - name: Start server
         run: |
           node server.js &
-          SERVER_PID=$!
+          echo $! > server.pid
           for i in $(seq 1 20); do
             if curl -sf http://localhost:3000/api/health; then
               echo "Server is healthy"
-              kill $SERVER_PID
               exit 0
             fi
             sleep 1
           done
           echo "Server did not become healthy in time" >&2
-          kill $SERVER_PID
           exit 1
+
+      - name: Sign up a new organization (multi-tenant smoke test)
+        run: |
+          curl -sf -X POST http://localhost:3000/api/auth/signup \
+            -H "Content-Type: application/json" \
+            -d '{"orgName":"CI Test Org","username":"ci-user","password":"ci-pass-1234","name":"CI User"}' \
+            -o signup-response.json
+          cat signup-response.json
+          grep -q '"username":"ci-user"' signup-response.json
+
+      - name: Stop server
+        if: always()
+        run: kill "$(cat server.pid)" 2>/dev/null || true

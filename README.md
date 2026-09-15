@@ -4,6 +4,8 @@ Application de gestion de chantiers (BTP) — clients, devis, factures, dépense
 
 PWA installable, utilisable hors-ligne (coquille applicative en cache), avec authentification, rôles (`admin`, `comptable`, `chef_chantier`) et journal d'audit. Les données sont centralisées côté serveur dans une base PostgreSQL — ce n'est plus une application 100 % locale.
 
+**Multi-tenant** : chaque entreprise dispose de son propre espace isolé (organisation). Une nouvelle entreprise crée son espace via "Créer un espace" sur l'écran de connexion (`POST /api/auth/signup`) ; un admin peut ensuite y inviter des comptes `comptable`/`chef_chantier` depuis les Paramètres. Les identifiants restent uniques sur l'ensemble de la plateforme (pas de sélecteur d'organisation à la connexion).
+
 Application en ligne : https://chantier-manager.up.railway.app
 
 ## Architecture
